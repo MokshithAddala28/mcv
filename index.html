@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Object Detection Web App</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+</head>
+<body>
+  <h1>Object Detection Web App</h1>
+  <video id="video" width="640" height="480" autoplay></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+  <script>
+    async function setupCamera() {
+      const video = document.getElementById('video');
+      const stream = await navigator.mediaDevices.getUserMedia({ 'video': true });
+      video.srcObject = stream;
+      return new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          resolve(video);
+        };
+      });
+    }
+
+    async function detectObjects(video, model) {
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = video.width;
+      canvas.height = video.height;
+
+      while (true) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const predictions = await model.detect(video);
+        drawPredictions(predictions, context);
+        await tf.nextFrame();
+      }
+    }
+
+    function drawPredictions(predictions, context) {
+      for (let i = 0; i < predictions.length; i++) {
+        const prediction = predictions[i];
+        context.beginPath();
+        context.rect(
+          prediction.bbox[0], prediction.bbox[1],
+          prediction.bbox[2], prediction.bbox[3]);
+        context.lineWidth = 2;
+        context.strokeStyle = 'red';
+        context.fillStyle = 'red';
+        context.stroke();
+        context.fillText(
+          `${prediction.class} (${Math.round(prediction.score * 100)}%)`,
+          prediction.bbox[0], prediction.bbox[1] > 10 ? prediction.bbox[1] - 5 : 10);
+      }
+    }
+
+    async function main() {
+      const video = await setupCamera();
+      const model = await cocoSsd.load();
+      detectObjects(video, model);
+    }
+
+    main();
+  </script>
+</body>
+</html>
